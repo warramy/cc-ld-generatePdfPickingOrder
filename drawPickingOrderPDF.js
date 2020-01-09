@@ -366,21 +366,20 @@ function generatePickingOrderTable(doc, data) {
 
     for (let i = 0; i < data.length; i++) {
 
-
         const seq = data[i].seq || ''
         const itemCode = data[i].productItemCode || ''
         const itemDescription = data[i].productItemNameTH || data[i].productItemNameEN || ''
         const binLocation = data[i].binLocation || ''
         const unit = data[i].unitNameTH || data[i].unitNameEN || ''
 
-        let nearestExpiredDate = ''
-        if (data[i].nearestExpiredDate != '') {
+        let nearestExpiredDate = '-'
+        if (data[i].nearestExpiredDate != null && data[i].nearestExpiredDate != '') {
             const dateTimeStamp = Date.parse(data[i].nearestExpiredDate);
             const d = new Date(dateTimeStamp);
             nearestExpiredDate = d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear()
 
         }
-        const expireDate = nearestExpiredDate || ''
+        const expireDate = nearestExpiredDate
         const picking = data[i].pickingQuantity >= 0 ? data[i].pickingQuantity : ''
 
 
