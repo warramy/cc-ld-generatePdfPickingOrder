@@ -64,52 +64,56 @@ exports.handler = async (event, context) => {
 
         if (pickingOrderRes.rowCount == 0) {
             throw { message: 'trNumber not found.' }
-        } else {
-            // Get PickingOrdersItem by user's warehouse and trNumber
-            console.log("query transfer_order_item by trNumber");
-            const paramsPickingOrderItem = queryPickingOrderItemWithTrNumber(trNumber)
-            let pickingOrderItemRes = await client.query(paramsPickingOrderItem.text, paramsPickingOrderItem.value);
-            //set data for pdf
-            console.log('set data for pdf file')
-            new_pickingOrderRes = pickingOrderRes.rows[0]
-            new_pickingOrderRes.items = pickingOrderItemRes.rows
+        }
 
-            console.log('get binLocation from stock_item and find nearest expiredDate');
-            for (let i = 0; i < new_pickingOrderRes.items.length; i++) {
+        const { statusCode } = pickingOrderRes.rows[0]
+        if (statusCode != 'PIC') {
+            throw { message: 'cannot get pdf picking order.' }
+        }
 
-                // get binLocation from stock_item
-                const { productItemCode } = new_pickingOrderRes.items[i]
-                const paramQueryStockItem = queryStockItem(warehouseCode, productItemCode);
-                const queryStockItemRes = await client.query(paramQueryStockItem.text, paramQueryStockItem.value);
-                if (queryStockItemRes.rowCount == 0) {
-                    throw { message: 'productItemCode not found in stock_item' }
-                }
+        // Get PickingOrdersItem by user's warehouse and trNumber
+        console.log("query transfer_order_item by trNumber");
+        const paramsPickingOrderItem = queryPickingOrderItemWithTrNumber(trNumber)
+        let pickingOrderItemRes = await client.query(paramsPickingOrderItem.text, paramsPickingOrderItem.value);
+        //set data for pdf
+        console.log('set data for pdf file')
+        new_pickingOrderRes = pickingOrderRes.rows[0]
+        new_pickingOrderRes.items = pickingOrderItemRes.rows
 
-                const { binLocation } = queryStockItemRes.rows[0]
-                new_pickingOrderRes.items[i].binLocation = binLocation
+        console.log('get binLocation from stock_item and find nearest expiredDate');
+        for (let i = 0; i < new_pickingOrderRes.items.length; i++) {
 
-                //find nearest expiredDate
-                const paramQueryStockLot = queryCheckStockLot(warehouseCode, productItemCode);
-                const queryStockLotRes = await client.query(paramQueryStockLot.text, paramQueryStockLot.value);
-                if (queryStockLotRes.rowCount == 0) {
-                    throw { message: 'productItemCode not found in stock_lot' }
-                }
-
-                const { expiredDate } = queryStockLotRes.rows[0]
-                new_pickingOrderRes.items[i].nearestExpiredDate = expiredDate
+            // get binLocation from stock_item
+            const { productItemCode } = new_pickingOrderRes.items[i]
+            const paramQueryStockItem = queryStockItem(warehouseCode, productItemCode);
+            const queryStockItemRes = await client.query(paramQueryStockItem.text, paramQueryStockItem.value);
+            if (queryStockItemRes.rowCount == 0) {
+                throw { message: 'productItemCode not found in stock_item' }
             }
 
-            console.log('new_pickingOrderRes => ', new_pickingOrderRes);
+            const { binLocation } = queryStockItemRes.rows[0]
+            new_pickingOrderRes.items[i].binLocation = binLocation
 
-            const createPDFRes = await createPDF.genFilePDFAndUploadPDF(new_pickingOrderRes)
-            console.log('createPDFRes => ', createPDFRes);
-            //set response
-            console.log("set response");
-            responsePDF = {
-                fileUrl: createPDFRes.Location || '',
-                key: createPDFRes.key || ''
+            //find nearest expiredDate
+            const paramQueryStockLot = queryCheckStockLot(warehouseCode, productItemCode);
+            const queryStockLotRes = await client.query(paramQueryStockLot.text, paramQueryStockLot.value);
+            if (queryStockLotRes.rowCount == 0) {
+                throw { message: 'productItemCode not found in stock_lot' }
             }
 
+            const { expiredDate } = queryStockLotRes.rows[0]
+            new_pickingOrderRes.items[i].nearestExpiredDate = expiredDate
+        }
+
+        console.log('new_pickingOrderRes => ', new_pickingOrderRes);
+
+        const createPDFRes = await createPDF.genFilePDFAndUploadPDF(new_pickingOrderRes)
+        console.log('createPDFRes => ', createPDFRes);
+        //set response
+        console.log("set response");
+        responsePDF = {
+            fileUrl: createPDFRes.Location || '',
+            key: createPDFRes.key || ''
         }
 
     } catch (err) {
