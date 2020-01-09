@@ -11,6 +11,7 @@ const TABLE_TRANSER_ORDER = 'transfer_order'
 const TABLE_TRANSER_ORDER_ITEM = 'transfer_order_item'
 const TABLE_STOCK_ITEM = 'stock_item'
 const TABLE_STOCK_LOT = 'stock_lot'
+const s3 = new AWS.S3();
 
 let docClient = new AWS.DynamoDB.DocumentClient();
 const pool = new Pool();
@@ -104,15 +105,20 @@ exports.handler = async (event, context) => {
             const { expiredDate } = queryStockLotRes.rows[0]
             new_pickingOrderRes.items[i].nearestExpiredDate = expiredDate
         }
-
         console.log('new_pickingOrderRes => ', new_pickingOrderRes);
 
         const createPDFRes = await createPDF.genFilePDFAndUploadPDF(new_pickingOrderRes)
         console.log('createPDFRes => ', createPDFRes);
+
+        console.log('get Signed Url 180 sec.')
+        const url = await getSignedUrl(createPDFRes.key, 180)
+        console.log('url => ', url)
+
+
         //set response
         console.log("set response");
         responsePDF = {
-            fileUrl: createPDFRes.Location || '',
+            fileUrl: url || '',
             key: createPDFRes.key || ''
         }
 
@@ -136,6 +142,20 @@ exports.handler = async (event, context) => {
     console.log("response: ", response);
     return response;
 };
+
+
+async function getSignedUrl(key, expires) {
+    const param = { Bucket: 'test.import.excel', Key: key, Expires: expires };
+    return new Promise(function (resolve, reject) {
+        s3.getSignedUrl('getObject', param, (err, url) => {
+            if (err) {
+                console.log('getSignedUrl error => ', err)
+                reject(err)
+            }
+            resolve(url);
+        })
+    });
+}
 
 
 function queryCheckStockLot(warehouseCode, productItemCode) {
